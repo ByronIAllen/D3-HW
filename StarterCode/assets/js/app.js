@@ -321,4 +321,61 @@ function visualize(theData) {
             }
         }
     });
+
+    // Mobile
+    // ======================
+    d3.select(window).on("resize", resize);
+
+    function resize() {
+        // Redefine the width, height and leftTextY (the three variables dependent on the width of the window).
+        width = parseInt(d3.select("#scatter").style("width"));
+        height = width - width / 3.9;
+        leftTextY = (height + labelArea) / 2 - labelArea;
+    
+        // Apply the width and height to the svg canvas.
+        svg.attr("width", width).attr("height", height);
+    
+        // Change the xScale and yScale ranges
+        xScale.range([margin + labelArea, width - margin]);
+        yScale.range([height - margin - labelArea, margin]);
+    
+        // Update the axis scales
+        svg.select(".xAxis")
+            .call(xAxis)
+            .attr("transform", "translate(0," + (height - margin - labelArea) + ")");
+    
+        svg.select(".yAxis").call(yAxis);
+    
+        // Update the ticks on each axis.
+        tickCount();
+    
+        // Change the labels.
+        xTextRefresh();
+        yTextRefresh();
+    
+        // Update radius of dots
+        crGet();
+    
+        // Change the dots on axis change
+        d3.selectAll("circle")
+            .attr("cy", function(d) {
+                return yScale(d[curY]);
+            })
+            .attr("cx", function(d) {
+                return xScale(d[curX]);
+            })
+            .attr("r", function() {
+                return circRadius;
+            });
+    
+        // Change the location and size of the state texts, too.
+        d3.selectAll(".stateText")
+            .attr("dy", function(d) {
+                return yScale(d[curY]) + circRadius / 3;
+            })
+            .attr("dx", function(d) {
+                return xScale(d[curX]);
+            })
+            .attr("r", circRadius / 3);
+    }
 }
