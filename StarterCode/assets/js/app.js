@@ -102,4 +102,223 @@ d3.csv("assets/data/data.csv"),then(function(data) {
     visualize(data);
 });
 
-// 
+// Defining the visualize function to handle manipulating elements 
+function visualize(theData) {
+    // Set default data to reference
+    var currentX = "poverty";
+    var currentY = "obesity";
+
+    // Set up empty variables for use later
+    var xMin;
+    var xMax;
+    var yMin;
+    var yMax;
+
+    // Get some tooltip rules set
+    var toolTip = d3.tip()
+        .attr("class", "d3-tip")
+        .offset([40, -60])
+        .html(function(d) {
+            console.log(d)
+
+            var xKey;
+            var stateName = "<div>" + d.state + "</div>";
+            var yKey = "<div>" + currentY + ": " + d[currentY] + "%</div>";
+
+            if (currentX == "poverty") {
+                xKey = "<div>" + currentX + ": " + d[currentX] + "%</div>";
+            } else {
+                xKey = "<div>" + currentX + ": " + parseFloat(d[currentX]).toLocaleString("en") + "</div>";
+            }
+
+            return stateName + xKey + yKey;
+        });
+
+    svg.call(toolTip);
+
+    // Dynamic changes for the graph
+    function xMinMax() {
+        xMin = d3.min(theData, function(d) {
+            return parseFloat(d[currentX]) * 0.90;
+        });
+
+        xMax = d3.max(theData, function(d) {
+            return parseFloat(d[currentX]) * 1.10;
+        });
+    }
+
+    function yMinMax() {
+       yMin = d3.min(theData, function(d) {
+           return parseFloat(d[currentY]) * 0.90;
+       });
+       
+       yMax = d3.max(theData, function(d) {
+           return parseFloat(d[currentY]) * 1.10;
+       });
+    }
+
+    function labelChange(axis, clickedText) {
+        d3.selectAll(".aText")
+            .filter("." + axis)
+            .filter(".active")
+            .classed("active", false)
+            .classed("inactive", true);
+        
+        clickedText.classed("inactive", false).classed("active", true);
+    }
+
+    // Plot time!
+    // ============================
+    // Set the min and max values on the axes
+    xMinMax();
+    yMinMax();
+
+    // Now scale the graph
+    var xScale = d3.scaleLinear()
+        .domain([xMin, xMax])
+        .range([margin + labelArea, width - margin]);
+    var yScale = d3.scaleLinear()
+        .domain([yMin, yMax])
+        .range([height - margin - labelArea, margin]);
+
+    // Set up the axes
+    var xAxis = d3.axisBottom(xScale);
+    var yAxis = d3.axisLeft(yScale);
+
+    function tickCount() {
+        if (width <= 500) {
+            xAxis.ticks(5);
+            yAxis.ticks(5);
+        } else {
+            xAxis.ticks(10);
+            yAxis.ticks(10);
+        }
+    }
+    tickCount();
+
+    // Append the axes
+    svg.append("g")
+        .call(xAxis)
+        .attr("class", "xAxis")
+        .attr("transform", "translate(0," + (height - margin - labelArea) + ")");
+    svg.append("g")
+        .call(yAxis)
+        .attr("class", "yAxis")
+        .attr("transform", "translate(" + (margin + labelArea) + ", 0)");
+
+    // Now for the dots and their labels
+    var theCircles = svg.selectAll("g theCircles").data(theData).enter();
+
+    theCircles.append("circle")
+        .attr("cx", function(d) {
+            return xScale(d[currentX]);
+        })
+        .attr("cy", function(d) {
+            return yScale(d[currentY]);
+        })
+        .attr("r", circRadius)
+        .attr("class", function(d) {
+            return "stateCircle" + d.abbr;
+        })
+        .on("mouseover", function(d) {
+            toolTip.show(d, this);
+            d3.select(this).style("stroke", "#323232")
+        })
+        .on("mouseout", function(d) {
+            toolTip.hide(d);
+            d3.select(this).style("stroke", "#e3e3e3");
+        });
+
+    theCircles.append("text")
+        .text(function(d) {
+            return d.abbr;
+        })
+        .attr("dx", function(d) {
+            return xScale(d[currentX]);
+        })
+        .attr("dy", function(d) {
+            return yScale(d[currentY]) + circRadius / 3;
+        })
+        .attr("font-size", circRadius)
+        .attr("class", "stateText")
+        .on("mouseover", function(d) {
+            toolTip.show(d);
+            d3.select("." + d.abbr).style("stroke", "#323232");
+        })
+        .on("mouseout", function(d) {
+            toolTip.hide(d);
+            d3.select("." + d.abbr).style("stroke", "#e3e3e3");
+        });
+
+    // Making the graph actually dynamic
+    // ==============================
+    d3.selectAll(".aText").on("click", function() {
+        // Save the selected text for reference
+        var self = d3.select(this);
+
+        if (self.classed("inactive")) {
+            var axis = self.attr("data-axis");
+            var name = self.attr("data-name");
+
+            if (axis == "x") {
+                currentX = name;
+                xMinMax();
+                xScale.domain([xMin, xMax]);
+
+                svg.select(".xAxis").transition().duration(300).call(xAxis);
+
+                // Change the dot location on axis change
+                d3.selectAll("circle").each(function() {
+                    d3.select(this)
+                        .transition()
+                        .attr("cx", function(d) {
+                            return xScale(d[currentX]);
+                        })
+                        .duration(300);
+                });
+
+                // Change the state text locations as well
+                d3.selectAll(".stateText").each(function() {
+                    d3.select(this)
+                        .transition()
+                        .attr("dx", function(d) {
+                            return xScale(d[currentX]);
+                        })
+                        .duration(300);
+                });
+
+                // Swap status of the clicked label and the previous label
+                labelChange(axis, self);
+            } else {
+                currentY = name;
+                yMinMax();
+                yScale.domain([yMin, yMax]);
+
+                svg.select(".yAxis").transition().duration(300).call(yAxis);
+
+                // Change dot location on axis change
+                d3.selectAll("circle").each(function() {
+                    d3.select(this)
+                        .transition()
+                        .attr("cy", function(d) {
+                            return yScale(d[currentY]);
+                        })
+                        .duration(300);
+                });
+
+                // Change the state texts too
+                d3.selectAll(".stateText").each(function() {
+                    d3.select(this)
+                        .transition()
+                        .attr("dy", function(d) {
+                            return yScale(d[currentY]) + circRadius / 3;
+                        })
+                        .duration(300);
+                });
+
+                // Swap active class to new label
+                labelChange(axis, self);
+            }
+        }
+    });
+}
